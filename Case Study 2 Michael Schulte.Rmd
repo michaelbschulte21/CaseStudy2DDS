@@ -1,0 +1,238 @@
+---
+title: "Case Study 2"
+author: "Michael Schulte"
+date: "12/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+####### Load in data #######
+```{r}
+library(caret)
+library(tidyverse)
+library(openxlsx)
+library(GGally)
+library(olsrr)
+library(Metrics)
+library(class)
+library(e1071)
+```
+```{r}
+df <- as.data.frame(read.csv("CaseStudy2-data.csv", stringsAsFactors = TRUE))
+df_no_attrition <- as.data.frame(read.csv("CaseStudy2CompSet No Attrition.csv"))
+df_no_salary <- as.data.frame(openxlsx::read.xlsx("CaseStudy2CompSet No Salary.xlsx"))
+```
+```{r}
+head(df)
+```
+```{r}
+head(df_no_attrition)
+```
+```{r}
+head(df_no_salary)
+colnames(df) %in% colnames(df_no_salary)
+```
+```{r}
+summary(df)
+```
+```{r}
+colnames(df)
+```
+```{r}
+str(df)
+```
+```{r}
+correl <- cor(df[, unlist(lapply(df, is.numeric))])
+cor_df <- as.data.frame(as.table(correl))
+cor_df %>% filter(Freq != 1) %>% filter(Freq >= 0.1 | Freq <= -0.1) %>% filter(Var1 == "MonthlyIncome")
+```
+```{r}
+df %>% ggplot(aes(x = PerformanceRating)) + geom_bar() + ggtitle("Bar Plot of Performance Rating")
+df %>% ggplot(aes(x = YearsAtCompany, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs YearsAtCompany")
+df %>% ggplot(aes(x = YearsWithCurrManager, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs YearsWithCurrManager")
+df %>% ggplot(aes(x = YearsInCurrentRole, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs YearsInCurrentRole")
+df %>% ggplot(aes(x = YearsSinceLastPromotion, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs YearsSinceLastPromotion")
+df %>% ggplot(aes(x = YearsSinceLastPromotion, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs YearsSinceLastPromotion")
+df %>% ggplot(aes(x = JobLevel, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs JobLevel")
+df %>% ggplot(aes(x = TotalWorkingYears, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs TotalWorkingYears")
+df %>% ggplot(aes(x = NumCompaniesWorked, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs NumCompaniesWorked")
+df %>% ggplot(aes(x = Education, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs Education")
+df %>% ggplot(aes(x = Age, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs Age")
+df %>% ggplot(aes(x = Attrition, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs Attrition")
+df %>% ggplot(aes(x = JobRole, y = MonthlyIncome)) + geom_jitter() + geom_smooth() + ggtitle("MonthlyIncome vs JobRole")
+```
+
+```{r}
+for(i in 1:length(df)){
+  for(k in 1:(length(df)/2)){
+    if(is.factor(df[,i]) | is.factor(df[,k])){
+      print(df %>% ggplot(aes(x = df[,i], y = df[,k], color = Attrition)) + geom_jitter() + ggtitle(paste0(colnames(df)[k], " vs ", colnames(df)[i])))
+    } else{
+      print(df %>% ggplot(aes(x = df[,i], y = df[,k], color = Attrition)) + geom_point() + ggtitle(paste0(colnames(df)[k], " vs ", colnames(df)[i])))
+    }
+    next
+  }
+}
+```
+######## Split Data ########
+```{r}
+set.seed(1234)
+inTrain <- createDataPartition(
+  y = df$MonthlyIncome,
+  ## the outcome data are needed
+  p = .80,
+  ## The percentage of data in the training set
+  list = FALSE
+)
+train_lm <- df[ inTrain,]
+validation_lm <- df[-inTrain,]
+```
+
+############# Build Linear Regression Model ################
+```{r}
+sapply(lapply(df, unique), length)
+```
+```{r}
+include <- c("Age","Attrition","Education","JobLevel","JobRole","NumCompaniesWorked", "TotalWorkingYears","YearsAtCompany","YearsInCurrentRole","YearsSinceLastPromotion", "YearsWithCurrManager", "MonthlyIncome")
+fit_lm <- lm(MonthlyIncome ~., data = train_lm %>% select(include))
+summary(fit_lm)
+pred <- as.data.frame(predict(fit_lm, newdata = validation_lm, interval = 'confidence'))
+rmse(validation_lm$MonthlyIncome, pred$fit)
+```
+```{r}
+fit_lm_final <- fit_lm <- lm(MonthlyIncome ~., data = df %>% select(include))
+df_no_salary$MonthlyIncome <- as.data.frame(predict(fit_lm, newdata = df_no_salary, interval = 'confidence'))$fit
+df_no_salary$MonthlyIncome <- df_no_salary$MonthlyIncome[order(df_no_salary$ID)]
+write.csv(df_no_salary, file = "Case2PredictionsSchulte Salary.csv")
+head(df_no_salary)
+```
+```{r}
+#Cook's D Bar Plot
+ols_plot_cooksd_bar(fit_lm)
+
+#Cook's D Chart
+ols_plot_cooksd_chart(fit_lm)
+
+#DFBetas Panel
+ols_plot_dfbetas(fit_lm)
+
+#DFFits Plot
+ols_plot_dffits(fit_lm)
+
+#Studentized Residual Plot
+ols_plot_resid_stud(fit_lm)
+
+#Standardized Residual Chart
+ols_plot_resid_stand(fit_lm)
+
+#Studentized Residuals vs Leverage Plot
+ols_plot_resid_lev(fit_lm)
+
+#Deleted Studentized Residuals vs Fitted Values Plot
+ols_plot_resid_stud_fit(fit_lm)
+
+#Hadi Plot
+ols_plot_hadi(fit_lm)
+
+#Potential-Residual Plot
+ols_plot_resid_pot(fit_lm)
+```
+###### KNN Model ########
+```{r}
+df$Attrition <- as.numeric(ifelse(df$Attrition == "Yes", 1, 0))
+df$Gender <- as.numeric(ifelse(df$Gender == "Female", 1, 0))
+df$Over18 <- as.numeric(ifelse(df$Over18 == "Y", 1, 0))
+df$OverTime <- as.numeric(ifelse(df$OverTime == "Yes", 1, 0))
+df$BusinessTravel <- as.numeric(ifelse(df$BusinessTravel == "Non-Travel", 0, ifelse(df$BusinessTravel == "Travel_Rarely", 1, 2)))
+df$Department <- as.numeric(ifelse(df$Department == "Human Resources", 0, ifelse(df$Department == "Research & Development", 1, 2)))
+df$MaritalStatus <- as.numeric(ifelse(df$MaritalStatus == "Divorced", 0, ifelse(df$MaritalStatus == "Single", 1, 2)))
+df$EducationField <- as.numeric(ifelse(df$EducationField == "Life Sciences", 0, ifelse(df$EducationField == "Medical", 1, ifelse(df$EducationField == "Marketing", 2, ifelse(df$EducationField == "Technical Degree", 3, ifelse(df$EducationField == "Human Resources", 4, 5))))))
+df$JobRole <- as.numeric(ifelse(df$JobRole == "Sales Executive", 0, ifelse(df$JobRole == "Research Director", 1, ifelse(df$JobRole == "Manufacturing Director", 2, ifelse(df$JobRole == "Research Scientist", 3, ifelse(df$JobRole == "Sales Representative", 4, ifelse(df$JobRole == "Healthcare Representative", 5, ifelse(df$JobRole == "Manager", 6, ifelse(df$JobRole == "Human Resources", 7, 8)))))))))
+nums <- unlist(lapply(df, is.numeric), use.names = FALSE)
+df <- df[, nums]
+stdize <- function(x) {(x - min(x)) / (max(x) - min(x))}
+for(i in 1:length(df)){
+  df[,i] <- stdize(df[,i])
+}
+set.seed(1234)
+inTrain <- createDataPartition(
+  y = df$Attrition,
+  ## the outcome data are needed
+  p = .95,
+  ## The percentage of data in the training set
+  list = FALSE
+)
+train_knn <- df[ inTrain,]
+validation_knn <- df[-inTrain,]
+```
+```{r}
+correl <- cor(df[, unlist(lapply(df, is.numeric))])
+cor_df <- as.data.frame(as.table(correl))
+cor_df %>% filter(Freq != 1) %>% filter(Freq >= 0.1 | Freq <= -0.1) %>% filter(Var1 == "Attrition")
+```
+```{r}
+accuracy <- c()
+k <- c()
+for(i in 1:50){
+	classifications <- knn(train_knn %>% select(-c("Attrition", "EmployeeCount", "Over18", "StandardHours")), validation_knn %>% select(-c("Attrition", "EmployeeCount", "Over18", "StandardHours")), train_knn$Attrition, prob = TRUE, k = i, use.all = T)
+	CM <- confusionMatrix(table(validation_knn$Attrition, classifications))
+	accuracy[i] <- CM$overall[1]
+	k[i] <- i
+	if(i == 1){
+	  accuracy.max <- accuracy[i]
+	  k.max <- k[i]
+	} else if(accuracy[i] > accuracy.max){
+	  accuracy.max <- accuracy[i]
+	  k.max <- k[i]
+	}
+}
+plot(k, accuracy, type = "l", xlab = "k")
+
+knn_final_test <- knn(train_knn %>% select(-c("Attrition", "EmployeeCount", "Over18", "StandardHours")), validation_knn %>% select(-c("Attrition", "EmployeeCount", "Over18", "StandardHours")), train_knn$Attrition, prob = TRUE, k = k.max, use.all = T)
+print(paste0("Max k: ", k.max))
+confusionMatrix(table(knn_final_test, validation_knn$Attrition))
+```
+Second Attempt
+```{r}
+accuracy <- c()
+k <- c()
+include <- c("Age", "JobInvolvement", "JobLevel", "MonthlyIncome", "OverTime", "StockOptionLevel", "TotalWorkingYears", "YearsAtCompany", "YearsInCurrentRole", "YearsWithCurrManager")
+
+for(i in 1:50){
+	classifications <- knn(train_knn %>% select(c(include)), validation_knn %>% select(c(include)), train_knn$Attrition, prob = TRUE, k = i, use.all = T)
+	CM <- confusionMatrix(table(validation_knn$Attrition, classifications))
+	accuracy[i] <- CM$overall[1]
+	k[i] <- i
+	if(i == 1){
+	  accuracy.max <- accuracy[i]
+	  k.max <- k[i]
+	} else if(accuracy[i] >= accuracy.max){
+	  accuracy.max <- accuracy[i]
+	  k.max <- k[i]
+	}
+}
+plot(k, accuracy, type = "l", xlab = "k")
+
+knn_final_test <- knn(train_knn %>% select(c(include)), validation_knn %>% select(c(include)), train_knn$Attrition, prob = TRUE, k = k.max, use.all = T)
+print(paste0("Max k: ", k.max))
+confusionMatrix(table(knn_final_test, validation_knn$Attrition))
+```
+```{r}
+include <- c("Age", "JobInvolvement", "JobLevel", "MonthlyIncome", "OverTime", "StockOptionLevel", "TotalWorkingYears", "YearsAtCompany", "YearsInCurrentRole", "YearsWithCurrManager")
+
+df_no_attrition$Gender <- as.numeric(ifelse(df_no_attrition$Gender == "Female", 1, 0))
+df_no_attrition$Over18 <- as.numeric(ifelse(df_no_attrition$Over18 == "Y", 1, 0))
+df_no_attrition$OverTime <- as.numeric(ifelse(df_no_attrition$OverTime == "Yes", 1, 0))
+df_no_attrition$BusinessTravel <- as.numeric(ifelse(df_no_attrition$BusinessTravel == "Non-Travel", 0, ifelse(df_no_attrition$BusinessTravel == "Travel_Rarely", 1, 2)))
+df_no_attrition$Department <- as.numeric(ifelse(df_no_attrition$Department == "Human Resources", 0, ifelse(df_no_attrition$Department == "Research & Development", 1, 2)))
+df_no_attrition$MaritalStatus <- as.numeric(ifelse(df_no_attrition$MaritalStatus == "Divorced", 0, ifelse(df_no_attrition$MaritalStatus == "Single", 1, 2)))
+df_no_attrition$EducationField <- as.numeric(ifelse(df_no_attrition$EducationField == "Life Sciences", 0, ifelse(df_no_attrition$EducationField == "Medical", 1, ifelse(df_no_attrition$EducationField == "Marketing", 2, ifelse(df_no_attrition$EducationField == "Technical Degree", 3, ifelse(df_no_attrition$EducationField == "Human Resources", 4, 5))))))
+df_no_attrition$JobRole <- as.numeric(ifelse(df_no_attrition$JobRole == "Sales Executive", 0, ifelse(df_no_attrition$JobRole == "Research Director", 1, ifelse(df_no_attrition$JobRole == "Manufacturing Director", 2, ifelse(df_no_attrition$JobRole == "Research Scientist", 3, ifelse(df_no_attrition$JobRole == "Sales Representative", 4, ifelse(df_no_attrition$JobRole == "Healthcare Representative", 5, ifelse(df_no_attrition$JobRole == "Manager", 6, ifelse(df_no_attrition$JobRole == "Human Resources", 7, 8)))))))))
+
+df_no_attrition$Attrition <- knn(df %>% select(include), df_no_attrition %>% select(include), df$Attrition, k = 25, use.all = T)
+df_no_attrition$Attrition <- df_no_attrition$Attrition[order(df_no_attrition$ID)]
+write.csv(df_no_attrition, file = "Case2PredictionsSchulte Attrition.csv")
+```
