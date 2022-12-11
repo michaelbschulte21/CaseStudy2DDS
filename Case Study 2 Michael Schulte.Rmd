@@ -33,7 +33,8 @@ head(df_no_attrition)
 ```
 ```{r}
 head(df_no_salary)
-colnames(df) %in% colnames(df_no_salary)
+nrow(df)
+length(df)
 ```
 ```{r}
 summary(df)
@@ -235,4 +236,22 @@ df_no_attrition$JobRole <- as.numeric(ifelse(df_no_attrition$JobRole == "Sales E
 df_no_attrition$Attrition <- knn(df %>% select(include), df_no_attrition %>% select(include), df$Attrition, k = 25, use.all = T)
 df_no_attrition$Attrition <- df_no_attrition$Attrition[order(df_no_attrition$ID)]
 write.csv(df_no_attrition, file = "Case2PredictionsSchulte Attrition.csv")
+```
+
+```{r}
+for(col.x in include){
+  for(col.y in include){
+    if(is.factor(df[,col.x]) | is.factor(df[,col.y])){
+      print(df %>% ggplot(aes(x = df[,col.x], y = df[,col.y], color = as.factor(Attrition))) + geom_jitter() + ggtitle(paste0(col.y, " vs ", col.x)))
+    } else{
+      print(df %>% ggplot(aes(x = df[,col.x], y = df[,col.y], color = as.factor(Attrition))) + geom_point() + ggtitle(paste0(col.y, " vs ", col.x)))
+    }
+    next
+  }
+}
+```
+```{r}
+for(col.x in include){
+  print(df %>% ggplot(aes(x = df[, col.x], y = as.factor(Attrition), color = as.factor(Attrition))) + geom_jitter() + geom_smooth() + ggtitle(paste0("Attrition vs ", col.x)))
+}
 ```
