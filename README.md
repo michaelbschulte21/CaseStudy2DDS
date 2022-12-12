@@ -3,6 +3,7 @@ Repository for Case Study 2 for DDS
 
 Zoom Link:
 https://smu.zoom.us/rec/share/UicfOpRJ9UpUMYN5WkU0P8bI4tp2Kr0qLPg4Wesb0BpqUJj9UEHzTQAKGK_BlI-M.9eI874DWtKjRxsZJ?startTime=1670804372000
+
 Passcode: 6a^@d&tr
 
 Executive Summary:
